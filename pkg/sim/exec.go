@@ -35,7 +35,7 @@ func (osExec) Run(env []string, stdin []byte, name string, args ...string) ([]by
 		if msg == "" {
 			msg = strings.TrimSpace(out.String())
 		}
-		return out.Bytes(), fmt.Errorf("%s %s: %v: %s", name, strings.Join(args, " "), err, msg)
+		return out.Bytes(), fmt.Errorf("%s %s: %w: %s", name, strings.Join(args, " "), err, msg)
 	}
 	return out.Bytes(), nil
 }

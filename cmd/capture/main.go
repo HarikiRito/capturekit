@@ -1,3 +1,4 @@
+// Command capture bundles the sim, browser and annotate tools.
 package main
 
 import (

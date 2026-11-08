@@ -1,0 +1,40 @@
+version: "2"
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gosec
+    - errorlint
+    - gocritic
+    - revive
+    - misspell
+  settings:
+    errcheck:
+      # CLI writes usage/output to stdout/stderr; nothing useful to do on failure.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+  exclusions:
+    rules:
+      # sim/browser/annotate exec adb/ffmpeg/agent-browser by design, and read/write user-chosen paths; screenshots are not secret.
+      - linters: [gosec]
+        text: "G204|G304|G301|G306|G703"
+      # false positive: index guarded by len check in the same expression.
+      - linters: [gosec]
+        text: G602
+      # uint32 >> 8 always fits uint8.
+      - linters: [gosec]
+        path: _test\.go
+        text: G115
+      # Doc comments on interface-implementing methods add no information.
+      - linters: [revive]
+        text: "should have comment or be unexported"
+formatters:
+  enable:
+    - gofmt
+    - goimports

@@ -546,7 +546,7 @@ func (a *app) typeText(args []string) error {
 	text := f.fs.String("text", "", "with --into: node text or content-desc")
 	desc := f.fs.String("desc", "", "with --into: node content-desc or text")
 	exact := f.fs.Bool("exact", false, "with --into: no substring matching")
-	clear := f.fs.Bool("clear", false, "clear the field before typing")
+	clearField := f.fs.Bool("clear", false, "clear the field before typing")
 	if err := f.parse(args); err != nil {
 		return err
 	}
@@ -571,7 +571,7 @@ func (a *app) typeText(args []string) error {
 		}
 		a.waitFocus(d)
 	}
-	if *clear {
+	if *clearField {
 		if err := a.clearFocused(d); err != nil {
 			return err
 		}
@@ -588,7 +588,7 @@ func (a *app) typeText(args []string) error {
 	field, _ := Focused(nodes)
 	shown := field.Text
 	// Password fields are masked, so only the length can be compared.
-	if shown != typed && !(field.Password && len([]rune(shown)) == len([]rune(typed))) {
+	if shown != typed && (!field.Password || len([]rune(shown)) != len([]rune(typed))) {
 		fmt.Fprintf(a.err, "capture sim type: typed %q but field shows %q\n", typed, shown)
 	}
 	return a.ok(f, fmt.Sprintf("typed; field shows %q", shown), map[string]string{"field": shown})
@@ -641,7 +641,8 @@ func (a *app) swipe(args []string) error {
 	}
 	var x1, y1, x2, y2, ms int
 	ms = 300
-	if len(f.pos) == 1 {
+	switch len(f.pos) {
+	case 1:
 		w, h, err := d.ScreenSize()
 		if err != nil {
 			return err
@@ -649,7 +650,7 @@ func (a *app) swipe(args []string) error {
 		if x1, y1, x2, y2, err = directionSwipe(f.pos[0], w, h); err != nil {
 			return err
 		}
-	} else if len(f.pos) == 4 || len(f.pos) == 5 {
+	case 4, 5:
 		n, err := atoiAll(f.pos)
 		if err != nil {
 			return err
@@ -658,7 +659,7 @@ func (a *app) swipe(args []string) error {
 		if len(n) == 5 {
 			ms = n[4]
 		}
-	} else {
+	default:
 		return errUsage
 	}
 	if err := d.Swipe(x1, y1, x2, y2, ms); err != nil {

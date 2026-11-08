@@ -24,7 +24,7 @@ func writePNG(t *testing.T, path string, w, h int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if err := png.Encode(f, img); err != nil {
 		t.Fatal(err)
 	}
@@ -39,7 +39,9 @@ func TestManifestReportsAllErrors(t *testing.T) {
 	 {"image":"a.png","box":[1,2,0,5],"out":"o3.png"},
 	 {"image":"a.png","box":[1,2,3],"out":"o4.png"}]`
 	mp := filepath.Join(dir, "m.json")
-	os.WriteFile(mp, []byte(m), 0o644)
+	if err := os.WriteFile(mp, []byte(m), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	var out, errb bytes.Buffer
 	if code := Run([]string{"--manifest", mp}, &out, &errb); code != 1 {
@@ -154,7 +156,9 @@ func TestManifestValidatesNewFields(t *testing.T) {
 	 {"image":"a.png","box":[1,1,5,5],"boxes":[{"box":[1,1,5,5]}],"out":"o3.png"},
 	 {"image":"a.png","out":"o4.png","boxes":[{"box":[1,1,5,5],"labelPos":"left","color":"#00ff00"},{"box":[99,1,5,5],"color":"zz"}]}]`
 	mp := filepath.Join(dir, "m.json")
-	os.WriteFile(mp, []byte(m), 0o644)
+	if err := os.WriteFile(mp, []byte(m), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	var out, errb bytes.Buffer
 	if code := Run([]string{"--manifest", mp}, &out, &errb); code != 1 {
 		t.Fatalf("code %d", code)
@@ -175,7 +179,7 @@ func pixel(t *testing.T, path string, x, y int) color.RGBA {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	img, err := png.Decode(f)
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +201,9 @@ func TestRunDrawsMultipleColoredBoxes(t *testing.T) {
 	  {"box":[40,150,200,100],"label":"A","labelPos":"inside-top","color":"blue"},
 	  {"box":[400,150,200,100],"label":"B","labelPos":"left","color":"#00ff00"}]}]`
 	mp := filepath.Join(dir, "m.json")
-	os.WriteFile(mp, []byte(m), 0o644)
+	if err := os.WriteFile(mp, []byte(m), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	var so, se bytes.Buffer
 	if code := Run([]string{"--manifest", mp}, &so, &se); code != 0 {
 		t.Fatalf("code %d: %s", code, se.String())

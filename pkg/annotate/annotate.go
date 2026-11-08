@@ -180,7 +180,7 @@ func render(j job, font string) error {
 	}
 	cmd := exec.Command("ffmpeg", "-loglevel", "error", "-y", "-i", j.Image, "-vf", filter(j, w, h, font), "-frames:v", "1", j.Out)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("ffmpeg: %v: %s", err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("ffmpeg: %w: %s", err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }

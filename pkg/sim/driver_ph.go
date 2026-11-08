@@ -114,8 +114,8 @@ func (p *phoneHarness) Screenshot() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	f.Close()
-	defer os.Remove(f.Name())
+	_ = f.Close()
+	defer func() { _ = os.Remove(f.Name()) }()
 	if err := p.do("screenshot", f.Name(), "screenshot(a)"); err != nil {
 		return nil, err
 	}

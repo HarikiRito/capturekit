@@ -145,7 +145,7 @@ func checkJSON(ex Exec, stdout io.Writer) int {
 		for _, c := range report.Checks {
 			report.OK = report.OK && c.Status == "ok"
 		}
-		json.NewEncoder(stdout).Encode(report)
+		_ = json.NewEncoder(stdout).Encode(report)
 		if report.OK {
 			return 0
 		}

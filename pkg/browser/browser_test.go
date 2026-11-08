@@ -30,9 +30,9 @@ func (f *fakeExec) LookPath(name string) (string, error) {
 	return "/bin/" + name, nil
 }
 
-func (f *fakeExec) Run(env []string, name string, args []string, stdout, stderr io.Writer) (int, error) {
+func (f *fakeExec) Run(env []string, name string, args []string, stdout, _ io.Writer) (int, error) {
 	f.calls = append(f.calls, call{env, name, args})
-	io.WriteString(stdout, f.out)
+	_, _ = io.WriteString(stdout, f.out)
 	if len(f.codes) >= len(f.calls) {
 		return f.codes[len(f.calls)-1], nil
 	}
@@ -144,7 +144,9 @@ func TestCheckJSONDetails(t *testing.T) {
 	var out bytes.Buffer
 	run(f, []string{"check", "--json"}, &out, io.Discard)
 	var r checkReport
-	json.Unmarshal(out.Bytes(), &r)
+	if err := json.Unmarshal(out.Bytes(), &r); err != nil {
+		t.Fatal(err)
+	}
 	if r.Checks[0].Name != "binary" || r.Checks[0].Detail != "/bin/agent-browser" || r.Checks[1].Name != "version" || r.Checks[1].Detail != "agent-browser 0.41.2" {
 		t.Errorf("%+v", r.Checks)
 	}

@@ -21,7 +21,7 @@ type fakeExec struct {
 	reply func(c call) (string, error)
 }
 
-func (f *fakeExec) Run(env []string, stdin []byte, name string, args ...string) ([]byte, error) {
+func (f *fakeExec) Run(_ []string, _ []byte, name string, args ...string) ([]byte, error) {
 	c := call{name, args}
 	f.calls = append(f.calls, c)
 	if f.reply == nil {
@@ -31,7 +31,7 @@ func (f *fakeExec) Run(env []string, stdin []byte, name string, args ...string) 
 	return []byte(out), err
 }
 
-func (f *fakeExec) Start(logPath string, env []string, name string, args ...string) error {
+func (f *fakeExec) Start(_ string, _ []string, name string, args ...string) error {
 	f.calls = append(f.calls, call{"START " + name, args})
 	return nil
 }
@@ -43,7 +43,7 @@ func newTestAndroid(t *testing.T, f *fakeExec) *Android {
 	return &Android{
 		X: f, StatePath: filepath.Join(t.TempDir(), "sim.json"),
 		Getenv:   func(k string) string { return env[k] },
-		LookPath: func(n string) (string, error) { return "", errors.New("none") },
+		LookPath: func(string) (string, error) { return "", errors.New("none") },
 		Now:      func() time.Time { return now },
 		Sleep:    func(d time.Duration) { now = now.Add(d) },
 	}
@@ -250,7 +250,7 @@ func TestTypeIntoClearsTypesAndWarnsOnMismatch(t *testing.T) {
 }
 
 func TestCheckOptionalSDKIsNotAFailure(t *testing.T) {
-	f := &fakeExec{reply: func(c call) (string, error) { return "Android Debug Bridge version 1.0.41\n", nil }}
+	f := &fakeExec{reply: func(call) (string, error) { return "Android Debug Bridge version 1.0.41\n", nil }}
 	a := newTestAndroid(t, f)
 	var out, errb bytes.Buffer
 	code := (&app{out: &out, err: &errb, plat: a, getenv: a.Getenv}).run([]string{"check"})

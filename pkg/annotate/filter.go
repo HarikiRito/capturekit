@@ -32,7 +32,7 @@ func filter(j job, imgW, imgH int, font string) string {
 }
 
 // labelPlace returns the drawtext x expression and y for a label next to box; both are clamped inside the image.
-func labelPlace(pos string, box []int, th, imgW, imgH, fs int) (x string, y int) {
+func labelPlace(pos string, box []int, th, _, imgH, fs int) (x string, y int) {
 	bx, by, bw, bh := box[0], box[1], box[2], box[3]
 	pad := fs / 3
 	if pos == "" || pos == "auto" {

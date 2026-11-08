@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
-	_ "image/jpeg"
+	_ "image/jpeg" // register decoders for image.DecodeConfig
 	_ "image/png"
 	"os"
 	"path/filepath"
@@ -21,7 +21,7 @@ func loadManifest(path, base string) ([]job, error) {
 	}
 	var jobs []job
 	if err := json.Unmarshal(b, &jobs); err != nil {
-		return nil, fmt.Errorf("manifest %s: %v", path, err)
+		return nil, fmt.Errorf("manifest %s: %w", path, err)
 	}
 	for i := range jobs {
 		jobs[i].Image = joinBase(base, jobs[i].Image)
@@ -42,10 +42,10 @@ func imageSize(path string) (w, h int, err error) {
 	if err != nil {
 		return 0, 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	cfg, _, err := image.DecodeConfig(f)
 	if err != nil {
-		return 0, 0, fmt.Errorf("%s: not a png/jpeg: %v", path, err)
+		return 0, 0, fmt.Errorf("%s: not a png/jpeg: %w", path, err)
 	}
 	return cfg.Width, cfg.Height, nil
 }

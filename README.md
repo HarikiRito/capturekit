@@ -6,6 +6,14 @@ One binary, `capture`, bundling independent packages for knowledge-base screensh
 
     go build -o bin/capture ./cmd/capture
 
+## Development
+
+Requires golangci-lint v2.
+
+- `make check` - gofmt check + lint + tests (run before pushing)
+- `make lint` / `make test` / `make fmt`
+- `make cover` - race tests + total coverage
+
 ## Packages
 
 - `capture sim ...` - drive a simulator/emulator and take screenshots
