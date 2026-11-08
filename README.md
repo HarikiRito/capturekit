@@ -12,7 +12,6 @@ Requires golangci-lint v2.
 
 - `make check` - gofmt check + lint + tests (run before pushing)
 - `make lint` / `make test` / `make fmt`
-- `make cover` - race tests + total coverage
 
 ## Packages
 

@@ -1,4 +1,4 @@
-.PHONY: fmt lint test cover build check
+.PHONY: fmt lint test build check
 
 fmt:
 	gofmt -w .
@@ -9,10 +9,6 @@ lint:
 
 test:
 	go test -race ./...
-
-cover:
-	go test -race -coverprofile=coverage.out ./...
-	go tool cover -func=coverage.out | tail -1
 
 build:
 	go build -o bin/capture ./cmd/capture
