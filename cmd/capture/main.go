@@ -8,6 +8,7 @@ import (
 
 	"github.com/HarikiRito/capturekit/pkg/annotate"
 	"github.com/HarikiRito/capturekit/pkg/browser"
+	"github.com/HarikiRito/capturekit/pkg/guide"
 	"github.com/HarikiRito/capturekit/pkg/sim"
 )
 
@@ -22,7 +23,13 @@ var pkgs = map[string]pkg{
 	"annotate": {annotate.Run, annotate.Instructions},
 }
 
-const usage = `usage: capture <package> [args]
+const usage = `usage: capture <command> [args]
+
+start with: capture agent-guide
+
+commands:
+  agent-guide  overview and standard flow for coding agents
+  setup        how to install missing dependencies
 
 packages:
   sim       drive a simulator/emulator and take screenshots
@@ -40,6 +47,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Fprint(stdout, usage)
 		return 0
+	}
+	if args[0] == "setup" || args[0] == "agent-guide" {
+		return guide.Run(args[:1], stdout, stderr)
 	}
 	p, ok := pkgs[args[0]]
 	if !ok {

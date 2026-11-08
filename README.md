@@ -18,6 +18,7 @@ Requires golangci-lint v2.
 - `capture sim ...` - drive a simulator/emulator and take screenshots
 - `capture browser ...` - drive a browser and take screenshots
 - `capture annotate ...` - draw a red box + label on screenshots (ffmpeg)
+- `capture setup` / `capture agent-guide` - `pkg/guide`: dependency setup and overview texts for coding agents
 
 Each package lives in `pkg/<name>` and exposes only `Run(args, stdout, stderr) int` and `Instructions() string`.
 Packages must not import each other; only `cmd/capture/main.go` knows all of them.
@@ -25,4 +26,12 @@ New platform support (e.g. iOS) should only touch `pkg/sim`.
 
 ## For coding agents
 
-Run `capture <pkg> instructions` first. It prints the full command reference, flags, schemas and exit codes for that package.
+Run `capture agent-guide` (overview, standard flow), then `capture setup` (install missing dependencies, verify with each `check`).
+Before using a package run `capture <pkg> instructions` for the full command reference, flags, schemas and exit codes.
+
+Snippet for a consuming repo's AGENTS.md / CLAUDE.md:
+
+    Use the capture CLI for screenshots.
+    Run `capture agent-guide` first.
+    Run `capture setup` to install deps.
+    Run `capture <pkg> instructions` before using a package.
