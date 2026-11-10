@@ -31,13 +31,14 @@ Interact (all accept --driver adb|phoneharness)
                                      field wins ties); --exact disables substring matching
                                      after a tap prints node count before/after, 'screen changed:
                                      yes/no' and focused text (--json: changed, focused); --no-verify skips
-  type <text>                        into the focused field (ASCII only)
+  type <text>                        into the focused field (ASCII only, no '%'); sent in chunks, checks the
+                                     field afterwards, retypes the missing tail up to 2x, exit 1 if still short
   type --into --desc "Email" [--clear] <text>
-                                     tap node (a label resolves to the input field below it), wait for focus, [clear], type, then print the field's
-                                     resulting text (stderr warning when it differs from <text>)
-  clear-field                        empty the focused field (END + one DEL per character)
+                                     tap node (a label resolves to the input field below it), wait for EditText focus
+                                     + keyboard shown (exit 1 if not), [clear], type, print the field's resulting text
+  clear-field                        empty the focused field (END + one DEL per character, 40 if text unreadable)
   key <KEYCODE|name>                 e.g. ENTER, TAB, KEYCODE_HOME, 66
-  back
+  back                               keyboard open: only hides it (exit 1 if it stays); else normal BACK
   swipe <x1> <y1> <x2> <y2> [ms]     or: swipe up|down|left|right (finger direction)
   wait --text T | --desc D [--exact] [--timeout 20s]   e.g. wait --desc "Sign in"
   screenshot <out.png>               then view the PNG
