@@ -531,13 +531,18 @@ func (a *app) clearField(args []string) error {
 	return a.emit(*f.json, map[string]any{"ok": true, "field": field}, fmt.Sprintf("cleared; field shows %q", field))
 }
 
-func (a *app) focusedText(d Driver) (string, error) {
+func (a *app) focusedNode(d Driver) (Node, error) {
 	nodes, err := d.UI()
 	if err != nil {
-		return "", err
+		return Node{}, err
 	}
 	n, _ := Focused(nodes)
-	return n.Text, nil
+	return n, nil
+}
+
+func (a *app) focusedText(d Driver) (string, error) {
+	n, err := a.focusedNode(d)
+	return n.Text, err
 }
 
 // waitFocus polls until an EditText has focus and the IME is shown, else errors.
@@ -553,18 +558,28 @@ func (a *app) waitFocus(d Driver) error {
 	return errors.New("field never got focus with the keyboard shown (tap it again, check 'ui')")
 }
 
-// landed returns how many leading chars of typed ended up at the end of the field.
-// Password fields are masked, so only the length can be compared.
-func landed(field Node, typed string) int {
+// reconcile compares the field with baseline+typed. It returns the missing suffix to
+// type or the number of stray trailing chars to delete; ok=false when the field
+// diverged. Masked fields compare length only.
+func reconcile(field, baseline Node, typed string) (add string, extra int, ok bool) {
 	if field.Password {
-		return min(len([]rune(field.Text)), len(typed))
-	}
-	for k := len(typed); k > 0; k-- {
-		if strings.HasSuffix(field.Text, typed[:k]) {
-			return k
+		n := len([]rune(field.Text)) - len([]rune(baseline.Text))
+		switch {
+		case n < 0:
+			return "", 0, false
+		case n > len(typed):
+			return "", n - len(typed), true
 		}
+		return typed[n:], 0, true
 	}
-	return 0
+	want := baseline.Text + typed
+	switch {
+	case strings.HasPrefix(want, field.Text):
+		return want[len(field.Text):], 0, true
+	case strings.HasPrefix(field.Text, want):
+		return "", len(field.Text) - len(want), true
+	}
+	return "", 0, false
 }
 
 func (a *app) typeText(args []string) error {
@@ -597,36 +612,52 @@ func (a *app) typeText(args []string) error {
 		if err := d.Tap(FieldFor(nodes, n).Center()); err != nil {
 			return err
 		}
-		if err := a.waitFocus(d); err != nil {
-			return err
-		}
+	}
+	if err := a.waitFocus(d); err != nil {
+		return err
 	}
 	if *clearField {
 		if err := a.clearFocused(d); err != nil {
 			return err
 		}
+		time.Sleep(settle)
+	}
+	baseline, err := a.focusedNode(d)
+	if err != nil {
+		return err
 	}
 	typed := strings.Join(f.pos, " ")
 	if err := d.Type(typed); err != nil {
 		return err
 	}
-	var shown string
-	for retry := 0; ; retry++ {
+	// A mismatch must be seen twice in a row before correcting: the a11y tree lags the IME.
+	var shown, last string
+	for fixes, reads := 0, 0; ; reads++ {
 		time.Sleep(keyboardSettle)
-		nodes, err := d.UI()
+		field, err := a.focusedNode(d)
 		if err != nil {
 			return err
 		}
-		field, _ := Focused(nodes)
 		shown = field.Text
-		k := landed(field, typed)
-		if k == len(typed) {
+		add, extra, ok := reconcile(field, baseline, typed)
+		if ok && add == "" && extra == 0 {
 			break
 		}
-		if retry == 2 {
-			return fmt.Errorf("typed %q but field shows %q after 2 retries", typed, shown)
+		if !ok || reads >= 8 || fixes == 3 {
+			return fmt.Errorf("typed %q onto %q but field shows %q", typed, baseline.Text, shown)
 		}
-		if err := d.Type(typed[k:]); err != nil {
+		if shown != last {
+			last = shown
+			continue
+		}
+		fixes++
+		last = ""
+		if extra > 0 {
+			_, err = d.Shell("input keyevent" + strings.Repeat(" KEYCODE_DEL", extra))
+		} else {
+			err = d.Type(add)
+		}
+		if err != nil {
 			return err
 		}
 	}
