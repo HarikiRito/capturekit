@@ -372,6 +372,14 @@ func atoiAll(ss []string) ([]int, error) {
 // settle is the pause before re-reading the UI after an input.
 var settle = 400 * time.Millisecond
 
+// keyboardSettle is the longer pause after typing; some IMEs (MIUI) lag behind.
+var keyboardSettle = 600 * time.Millisecond
+
+func imeShown(d Driver) bool {
+	out, err := d.Shell("dumpsys input_method | grep mInputShown")
+	return err == nil && strings.Contains(out, "mInputShown=true")
+}
+
 func screenHash(nodes []Node) uint64 {
 	h := fnv.New64a()
 	for _, n := range nodes {
@@ -479,7 +487,8 @@ func (a *app) findNode(d Driver, query string, byDesc, exact bool) (Node, []Node
 	return n, nodes, nil
 }
 
-// clearFocused deletes the focused field's content (END, then one DEL per character).
+// clearFocused deletes the focused field's content (END, then one DEL per character;
+// 40 when the a11y text is empty, as Flutter may not expose it).
 func (a *app) clearFocused(d Driver) error {
 	nodes, err := d.UI()
 	if err != nil {
@@ -489,7 +498,11 @@ func (a *app) clearFocused(d Driver) error {
 	if !ok {
 		return errors.New("no focused field (tap one first)")
 	}
-	keys := "input keyevent KEYCODE_MOVE_END" + strings.Repeat(" KEYCODE_DEL", len([]rune(n.Text)))
+	dels := len([]rune(n.Text))
+	if dels == 0 {
+		dels = 40
+	}
+	keys := "input keyevent KEYCODE_MOVE_END" + strings.Repeat(" KEYCODE_DEL", dels)
 	_, err = d.Shell(keys)
 	return err
 }
@@ -527,16 +540,31 @@ func (a *app) focusedText(d Driver) (string, error) {
 	return n.Text, nil
 }
 
-// waitFocus polls briefly so typing does not start before the field has focus.
-func (a *app) waitFocus(d Driver) {
-	for i := 0; i < 10; i++ {
+// waitFocus polls until an EditText has focus and the IME is shown, else errors.
+func (a *app) waitFocus(d Driver) error {
+	for i := 0; i < 5; i++ {
 		if nodes, err := d.UI(); err == nil {
-			if _, ok := Focused(nodes); ok {
-				return
+			if n, ok := Focused(nodes); ok && strings.Contains(n.Class, "EditText") && imeShown(d) {
+				return nil
 			}
 		}
 		time.Sleep(settle)
 	}
+	return errors.New("field never got focus with the keyboard shown (tap it again, check 'ui')")
+}
+
+// landed returns how many leading chars of typed ended up at the end of the field.
+// Password fields are masked, so only the length can be compared.
+func landed(field Node, typed string) int {
+	if field.Password {
+		return min(len([]rune(field.Text)), len(typed))
+	}
+	for k := len(typed); k > 0; k-- {
+		if strings.HasSuffix(field.Text, typed[:k]) {
+			return k
+		}
+	}
+	return 0
 }
 
 func (a *app) typeText(args []string) error {
@@ -569,7 +597,9 @@ func (a *app) typeText(args []string) error {
 		if err := d.Tap(FieldFor(nodes, n).Center()); err != nil {
 			return err
 		}
-		a.waitFocus(d)
+		if err := a.waitFocus(d); err != nil {
+			return err
+		}
 	}
 	if *clearField {
 		if err := a.clearFocused(d); err != nil {
@@ -580,16 +610,25 @@ func (a *app) typeText(args []string) error {
 	if err := d.Type(typed); err != nil {
 		return err
 	}
-	time.Sleep(settle)
-	nodes, err := d.UI()
-	if err != nil {
-		return err
-	}
-	field, _ := Focused(nodes)
-	shown := field.Text
-	// Password fields are masked, so only the length can be compared.
-	if shown != typed && (!field.Password || len([]rune(shown)) != len([]rune(typed))) {
-		fmt.Fprintf(a.err, "capture sim type: typed %q but field shows %q\n", typed, shown)
+	var shown string
+	for retry := 0; ; retry++ {
+		time.Sleep(keyboardSettle)
+		nodes, err := d.UI()
+		if err != nil {
+			return err
+		}
+		field, _ := Focused(nodes)
+		shown = field.Text
+		k := landed(field, typed)
+		if k == len(typed) {
+			break
+		}
+		if retry == 2 {
+			return fmt.Errorf("typed %q but field shows %q after 2 retries", typed, shown)
+		}
+		if err := d.Type(typed[k:]); err != nil {
+			return err
+		}
 	}
 	return a.ok(f, fmt.Sprintf("typed; field shows %q", shown), map[string]string{"field": shown})
 }
@@ -623,10 +662,20 @@ func (a *app) back(args []string) error {
 	if err != nil {
 		return err
 	}
+	shown := imeShown(d)
 	if err := d.Back(); err != nil {
 		return err
 	}
-	return a.ok(f, "back", nil)
+	if !shown {
+		return a.ok(f, "back", nil)
+	}
+	for i := 0; i < 5; i++ {
+		time.Sleep(settle)
+		if !imeShown(d) {
+			return a.ok(f, "back (keyboard hidden)", nil)
+		}
+	}
+	return errors.New("back: keyboard still shown")
 }
 
 func (a *app) swipe(args []string) error {

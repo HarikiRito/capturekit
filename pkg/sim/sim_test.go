@@ -148,6 +148,9 @@ func TestEscapeInputText(t *testing.T) {
 	if _, err := escapeInputText("café"); err == nil {
 		t.Fatal("non-ascii should fail")
 	}
+	if _, err := escapeInputText("50%"); err == nil {
+		t.Fatal("percent should fail")
+	}
 	if normalizeKey("enter") != "KEYCODE_ENTER" || normalizeKey("66") != "66" || normalizeKey("KEYCODE_HOME") != "KEYCODE_HOME" {
 		t.Fatal("normalizeKey")
 	}
@@ -174,7 +177,7 @@ func TestTapTextUsesNodeCenter(t *testing.T) {
 	}
 }
 
-func init() { settle = 0 }
+func init() { settle, keyboardSettle = 0, 0 }
 
 func uiNode(text, desc string, focused bool, top int) string {
 	return fmt.Sprintf(`<node text=%q content-desc=%q class="android.widget.EditText" focused="%v" bounds="[0,%d][100,%d]"/>`, text, desc, focused, top, top+50)
@@ -189,10 +192,14 @@ func scriptedApp(t *testing.T, dumps ...string) (*app, *fakeExec, *bytes.Buffer,
 	t.Helper()
 	i := 0
 	f := &fakeExec{reply: func(c call) (string, error) {
-		if strings.Contains(strings.Join(c.args, " "), "uiautomator") {
+		joined := strings.Join(c.args, " ")
+		if strings.Contains(joined, "uiautomator") {
 			d := dumps[min(i, len(dumps)-1)]
 			i++
 			return d, nil
+		}
+		if strings.Contains(joined, "dumpsys input_method") {
+			return "mInputShown=true", nil
 		}
 		return "", nil
 	}}
@@ -228,24 +235,95 @@ func TestTapNoVerifyDumpsOnce(t *testing.T) {
 	}
 }
 
-func TestTypeIntoClearsTypesAndWarnsOnMismatch(t *testing.T) {
+func TestTypeIntoClearsAndTypes(t *testing.T) {
 	before := hierarchy(uiNode("", "Email", false, 0))
 	focused := hierarchy(uiNode("old", "Email", true, 0))
-	a, f, out, errb := scriptedApp(t, before, focused, focused, hierarchy(uiNode("emo", "Email", true, 0)))
+	a, f, _, errb := scriptedApp(t, before, focused, focused, hierarchy(uiNode("demo", "Email", true, 0)))
 	if code := a.run([]string{"type", "--into", "--desc", "Email", "--clear", "demo"}); code != 0 {
 		t.Fatalf("code %d: %s", code, errb.String())
 	}
 	var shell []string
 	for _, c := range f.calls {
-		if len(c.args) > 2 && c.args[len(c.args)-2] == "shell" {
-			shell = append(shell, c.args[len(c.args)-1])
-		}
+		shell = append(shell, c.args[len(c.args)-1])
 	}
 	if !strings.Contains(strings.Join(shell, "|"), "KEYCODE_MOVE_END KEYCODE_DEL KEYCODE_DEL KEYCODE_DEL") {
 		t.Fatalf("expected 3 DELs for 'old': %v", f.calls)
 	}
-	if !strings.Contains(errb.String(), `typed "demo" but field shows "emo"`) || !strings.Contains(out.String(), `"emo"`) {
-		t.Fatalf("mismatch not reported: out=%s err=%s", out.String(), errb.String())
+}
+
+// typingFake emulates a field whose IME swallows multi-char `input text` calls.
+type typingFake struct {
+	text        string
+	drop        int // multi-char calls still to swallow; <0 = always
+	imeShown    bool
+	backCalls   int
+	backHidesIM bool
+}
+
+func (tf *typingFake) reply(c call) (string, error) {
+	joined := strings.Join(c.args, " ")
+	switch {
+	case strings.Contains(joined, "uiautomator"):
+		return hierarchy(uiNode(tf.text, "Email", true, 0)), nil
+	case strings.Contains(joined, "dumpsys input_method"):
+		return fmt.Sprintf("mInputShown=%v", tf.imeShown), nil
+	case strings.Contains(joined, "input text"):
+		s := strings.ReplaceAll(strings.Trim(c.args[len(c.args)-1], "'"), "%s", " ")
+		if len(s) > 1 && tf.drop != 0 {
+			tf.drop--
+			return "", nil
+		}
+		tf.text += s
+	case strings.Contains(joined, "KEYCODE_BACK"):
+		tf.backCalls++
+		if tf.backHidesIM {
+			tf.imeShown = false
+		}
+	}
+	return "", nil
+}
+
+func typingApp(t *testing.T, tf *typingFake) (*app, *bytes.Buffer) {
+	t.Helper()
+	a := newTestAndroid(t, &fakeExec{reply: tf.reply})
+	_ = saveState(a.StatePath, State{Serial: "emu"})
+	var errb bytes.Buffer
+	return &app{out: &bytes.Buffer{}, err: &errb, plat: a, getenv: a.Getenv}, &errb
+}
+
+func TestTypeRetriesDroppedChars(t *testing.T) {
+	tf := &typingFake{drop: 2, imeShown: true}
+	a, errb := typingApp(t, tf)
+	if code := a.run([]string{"type", "user@example.com"}); code != 0 || tf.text != "user@example.com" {
+		t.Fatalf("code %d text %q: %s", code, tf.text, errb.String())
+	}
+}
+
+func TestTypeFailsWhenNeverConverges(t *testing.T) {
+	tf := &typingFake{drop: -1, imeShown: true}
+	a, errb := typingApp(t, tf)
+	if code := a.run([]string{"type", "user@example.com"}); code != 1 || !strings.Contains(errb.String(), "after 2 retries") {
+		t.Fatalf("want exit 1, got text %q err %s", tf.text, errb.String())
+	}
+}
+
+func TestTypeIntoFailsWithoutKeyboard(t *testing.T) {
+	tf := &typingFake{}
+	a, errb := typingApp(t, tf)
+	if code := a.run([]string{"type", "--into", "--desc", "Email", "x"}); code != 1 || tf.text != "" {
+		t.Fatalf("typed %q without keyboard: %s", tf.text, errb.String())
+	}
+}
+
+func TestBackHidesKeyboardOnly(t *testing.T) {
+	tf := &typingFake{imeShown: true, backHidesIM: true}
+	a, errb := typingApp(t, tf)
+	if code := a.run([]string{"back"}); code != 0 || tf.imeShown || tf.backCalls != 1 {
+		t.Fatalf("code %d ime %v: %s", code, tf.imeShown, errb.String())
+	}
+	tf.imeShown, tf.backHidesIM = true, false
+	if code := a.run([]string{"back"}); code != 1 {
+		t.Fatal("stuck keyboard must fail")
 	}
 }
 

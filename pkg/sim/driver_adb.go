@@ -2,6 +2,7 @@ package sim
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,9 @@ func escapeInputText(s string) (string, error) {
 	for _, r := range s {
 		if r < 0x20 || r > 0x7e {
 			return "", fmt.Errorf("adb input cannot type %q (ASCII only)", r)
+		}
+		if r == '%' {
+			return "", errors.New("adb input cannot type '%' (input text turns it into a space)")
 		}
 	}
 	s = strings.ReplaceAll(s, " ", "%s")
@@ -42,13 +46,28 @@ func (d *adbDriver) Tap(x, y int) error {
 	return err
 }
 
+// Type sends the first char alone so a Flutter IME restart cannot swallow the rest, then 8-char chunks.
 func (d *adbDriver) Type(text string) error {
-	esc, err := escapeInputText(text)
-	if err != nil {
+	if _, err := escapeInputText(text); err != nil || text == "" {
 		return err
 	}
-	_, err = d.shell("input", "text", esc)
-	return err
+	send := func(s string) error {
+		esc, _ := escapeInputText(s)
+		_, err := d.shell("input", "text", esc)
+		return err
+	}
+	if err := send(text[:1]); err != nil {
+		return err
+	}
+	d.a.Sleep(150 * time.Millisecond)
+	for rest := text[1:]; rest != ""; {
+		n := min(len(rest), 8)
+		if err := send(rest[:n]); err != nil {
+			return err
+		}
+		rest = rest[n:]
+	}
+	return nil
 }
 
 func (d *adbDriver) Swipe(x1, y1, x2, y2, ms int) error {
