@@ -238,7 +238,8 @@ func TestTapNoVerifyDumpsOnce(t *testing.T) {
 func TestTypeIntoClearsAndTypes(t *testing.T) {
 	before := hierarchy(uiNode("", "Email", false, 0))
 	focused := hierarchy(uiNode("old", "Email", true, 0))
-	a, f, _, errb := scriptedApp(t, before, focused, focused, hierarchy(uiNode("demo", "Email", true, 0)))
+	empty := hierarchy(uiNode("", "Email", true, 0))
+	a, f, _, errb := scriptedApp(t, before, focused, focused, empty, hierarchy(uiNode("demo", "Email", true, 0)))
 	if code := a.run([]string{"type", "--into", "--desc", "Email", "--clear", "demo"}); code != 0 {
 		t.Fatalf("code %d: %s", code, errb.String())
 	}
@@ -255,6 +256,7 @@ func TestTypeIntoClearsAndTypes(t *testing.T) {
 type typingFake struct {
 	text        string
 	drop        int // multi-char calls still to swallow; <0 = always
+	stray       int // input text calls that still append a stray "y"
 	imeShown    bool
 	backCalls   int
 	backHidesIM bool
@@ -274,6 +276,12 @@ func (tf *typingFake) reply(c call) (string, error) {
 			return "", nil
 		}
 		tf.text += s
+		if tf.stray > 0 && len(s) > 1 {
+			tf.stray--
+			tf.text += "y"
+		}
+	case strings.Contains(joined, "KEYCODE_DEL"):
+		tf.text = tf.text[:max(0, len(tf.text)-strings.Count(joined, "KEYCODE_DEL"))]
 	case strings.Contains(joined, "KEYCODE_BACK"):
 		tf.backCalls++
 		if tf.backHidesIM {
@@ -299,10 +307,26 @@ func TestTypeRetriesDroppedChars(t *testing.T) {
 	}
 }
 
+func TestTypeRemovesStrayChars(t *testing.T) {
+	tf := &typingFake{stray: 1, imeShown: true}
+	a, errb := typingApp(t, tf)
+	if code := a.run([]string{"type", "Gym"}); code != 0 || tf.text != "Gym" {
+		t.Fatalf("code %d text %q: %s", code, tf.text, errb.String())
+	}
+}
+
+func TestTypeAppendsToExistingTextExactly(t *testing.T) {
+	tf := &typingFake{text: "Gym", drop: 1, imeShown: true}
+	a, errb := typingApp(t, tf)
+	if code := a.run([]string{"type", "Gym"}); code != 0 || tf.text != "GymGym" {
+		t.Fatalf("code %d text %q: %s", code, tf.text, errb.String())
+	}
+}
+
 func TestTypeFailsWhenNeverConverges(t *testing.T) {
 	tf := &typingFake{drop: -1, imeShown: true}
 	a, errb := typingApp(t, tf)
-	if code := a.run([]string{"type", "user@example.com"}); code != 1 || !strings.Contains(errb.String(), "after 2 retries") {
+	if code := a.run([]string{"type", "user@example.com"}); code != 1 || !strings.Contains(errb.String(), "but field shows") {
 		t.Fatalf("want exit 1, got text %q err %s", tf.text, errb.String())
 	}
 }
