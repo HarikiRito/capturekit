@@ -262,7 +262,7 @@ func (a *Android) Driver(name string) (Driver, error) {
 	case "", "adb":
 		return &adbDriver{a: a}, nil
 	case "phoneharness":
-		return newPhoneHarness(a)
+		return newPhoneHarness(a.X, a.LookPath, a.Getenv, "android", a.androidEnv)
 	}
 	return nil, fmt.Errorf("unknown driver %q (auto|adb|phoneharness)", name)
 }

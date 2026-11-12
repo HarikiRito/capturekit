@@ -2,8 +2,9 @@ package sim
 
 // Instructions returns the agent-readable command reference.
 func Instructions() string {
-	return `capture sim - install, run and drive an Android app on an emulator (iOS: future)
+	return `capture sim - install, run and drive an Android or iOS app on an emulator/simulator
 
+Platform: leading flag --platform android|ios (or $CAPTURE_SIM_PLATFORM), default android. Example: capture sim --platform ios boot
 Flow: check -> boot|connect -> install -> launch -> ui/tap/type/screenshot -> clear
 Every command takes --json (machine-readable). Exit 0 ok, 1 failure (stderr says why), 2 usage.
 
@@ -21,6 +22,24 @@ App
   stop <pkg> | clear <pkg>           force-stop | wipe app data
   grant <pkg> <perm>...              pm grant
   shell -- <cmd>                     raw device shell
+
+iOS (--platform ios; needs Xcode, simulators only for the commands below)
+  check                              xcrun/simctl (required), axe + phone-harness (optional)
+  boot [--avd n] [--create]          reuse simulator named n (default "capturekit") else simctl create (iPad Air 11-inch M2), then bootstatus -b; saves its UDID
+  connect --serial <udid>            pick a simulator; devices lists available ones
+  install <App.app>                  simctl install; --grant is ignored, use grant
+  launch <bundle id>                 simctl launch, prints "<bundle>: <pid>"
+  stop <bundle id>                   simctl terminate
+  clear <bundle id>                  simctl uninstall (no per-app data wipe exists): install again after
+  grant <bundle id> <service>...     simctl privacy grant (photos, location, microphone, ...; see simctl privacy)
+  shell, back                        unsupported
+  Simulator UI/input run through AXe (brew install cameroncooke/axe/axe): ui = axe describe-ui (AXLabel -> desc,
+  AXValue -> text; clickable is always false), tap/swipe use points (screen-size reports points, screenshots are pixels),
+  type = US keyboard ASCII, key takes an HID usage code (40 = Return). Screenshot = simctl io screenshot.
+  Real iPhone: connect <name> --device selects phone-harness over iPhone Mirroring (macOS 15+, iOS 18+, iPhone only).
+  It supports screenshot, tap x y, type, swipe, key (press combo). No UI tree (ui and tap --text fail), no back, no shell,
+  and boot/install/launch/stop/clear/grant are rejected: use phone-harness directly.
+  --driver auto|axe|phoneharness on iOS: auto = axe for a simulator, phoneharness after connect --device.
 
 Interact (all accept --driver auto|adb|phoneharness)
   ui [--all]                         visible nodes: center, bounds, text, desc, class, clickable,

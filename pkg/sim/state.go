@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 )
 
-// State is the persisted active adb endpoint.
+// State is the persisted active endpoint (adb server/serial, or iOS simulator UDID).
 type State struct {
 	Server string `json:"server,omitempty"` // adb server host:port (adb -H/-P)
-	Serial string `json:"serial,omitempty"` // device serial (adb -s)
+	Serial string `json:"serial,omitempty"` // device serial (adb -s) or simulator UDID
+	Device bool   `json:"device,omitempty"` // iOS: real iPhone via phone-harness
 }
 
 func defaultStatePath(getenv func(string) string) string {
