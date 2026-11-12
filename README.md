@@ -15,7 +15,7 @@ Requires golangci-lint v2.
 
 ## Packages
 
-- `capture sim ...` - drive a simulator/emulator and take screenshots
+- `capture sim ...` - drive a simulator/emulator and take screenshots. Default `--driver auto`: phone-harness if installed, else adb; reads (ui/screenshot/screen-size) retry once on adb, actions never fall back. `--driver adb|phoneharness` (or `CAPTURE_SIM_DRIVER`) forces one
 - `capture browser ...` - drive a browser and take screenshots
 - `capture annotate ...` - draw a red box + label on screenshots (ffmpeg)
 - `capture setup` / `capture agent-guide` - `pkg/guide`: dependency setup and overview texts for coding agents

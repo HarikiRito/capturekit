@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -75,6 +76,10 @@ func (p *phoneHarness) Tap(x, y int) error {
 }
 
 func (p *phoneHarness) Type(text string) error {
+	// phone-harness uses `input text` on Android: '%' becomes a space, non-ASCII fails.
+	if _, err := escapeInputText(text); err != nil {
+		return err
+	}
 	return p.do("type", text, "type_text(a)")
 }
 
@@ -119,7 +124,11 @@ func (p *phoneHarness) Screenshot() ([]byte, error) {
 	if err := p.do("screenshot", f.Name(), "screenshot(a)"); err != nil {
 		return nil, err
 	}
-	return os.ReadFile(f.Name())
+	png, err := os.ReadFile(f.Name())
+	if err == nil && !bytes.HasPrefix(png, []byte("\x89PNG")) {
+		return nil, fmt.Errorf("phone-harness screenshot is not a PNG (%d bytes)", len(png))
+	}
+	return png, err
 }
 
 func (p *phoneHarness) ScreenSize() (int, int, error) {

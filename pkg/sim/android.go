@@ -143,7 +143,7 @@ func (a *Android) Check() []Tool {
 	} {
 		tools = append(tools, Tool{Name: t.name, Path: t.path, OK: t.path != "", Optional: true, Note: "optional (needed for boot only)"})
 	}
-	ph := Tool{Name: "phone-harness", Optional: true, Note: "optional, for --driver phoneharness (experimental)"}
+	ph := Tool{Name: "phone-harness", Optional: true, Note: "optional, default driver when present (--driver auto), else adb"}
 	if p, err := a.LookPath(phoneHarnessBin(a.Getenv)); err == nil {
 		ph.Path, ph.OK, ph.Note = p, true, "experimental"
 		if out, err := a.X.Run(nil, nil, p, "--version"); err == nil {
@@ -264,7 +264,7 @@ func (a *Android) Driver(name string) (Driver, error) {
 	case "phoneharness":
 		return newPhoneHarness(a)
 	}
-	return nil, fmt.Errorf("unknown driver %q (adb|phoneharness)", name)
+	return nil, fmt.Errorf("unknown driver %q (auto|adb|phoneharness)", name)
 }
 
 // Boot starts a headless native emulator and waits for sys.boot_completed.
