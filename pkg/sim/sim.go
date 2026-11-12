@@ -20,9 +20,39 @@ type app struct {
 	getenv   func(string) string
 }
 
-// Run executes `capture sim <args>` and returns the process exit code.
+// Run executes `capture sim [--platform android|ios] <args>` and returns the process exit code.
 func Run(args []string, stdout, stderr io.Writer) int {
-	return (&app{out: stdout, err: stderr, plat: NewAndroid(), getenv: os.Getenv}).run(args)
+	name, args := splitPlatform(args, os.Getenv("CAPTURE_SIM_PLATFORM"))
+	plat, err := newPlatform(name)
+	if err != nil {
+		fmt.Fprintf(stderr, "capture sim: %v\n", err)
+		return 2
+	}
+	return (&app{out: stdout, err: stderr, plat: plat, getenv: os.Getenv}).run(args)
+}
+
+// splitPlatform takes a leading --platform flag (default def, else android) off args.
+func splitPlatform(args []string, def string) (string, []string) {
+	if def == "" {
+		def = "android"
+	}
+	switch {
+	case len(args) >= 2 && args[0] == "--platform":
+		return args[1], args[2:]
+	case len(args) >= 1 && strings.HasPrefix(args[0], "--platform="):
+		return strings.TrimPrefix(args[0], "--platform="), args[1:]
+	}
+	return def, args
+}
+
+func newPlatform(name string) (Platform, error) {
+	switch name {
+	case "android":
+		return NewAndroid(), nil
+	case "ios":
+		return NewIOS(), nil
+	}
+	return nil, fmt.Errorf("unknown platform %q (android|ios)", name)
 }
 
 type command struct {
@@ -102,7 +132,7 @@ func (f *flags) driverFlag(getenv func(string) string) {
 	if def == "" {
 		def = "auto"
 	}
-	f.driver = f.fs.String("driver", def, "auto|adb|phoneharness")
+	f.driver = f.fs.String("driver", def, "auto|adb|axe|phoneharness (adb: android, axe: ios)")
 }
 
 // parse allows flags anywhere; everything after a literal "--" is positional.
@@ -142,7 +172,7 @@ func (a *app) emit(asJSON bool, v any, text string) error {
 }
 
 func (a *app) driver(f *flags) (Driver, error) {
-	if *f.driver != "auto" {
+	if *f.driver != "auto" || a.plat.Name() != "android" {
 		return a.plat.Driver(*f.driver)
 	}
 	adb, err := a.plat.Driver("adb")
@@ -181,7 +211,7 @@ func (a *app) check(args []string) error {
 		return err
 	}
 	if failed {
-		return errors.New("adb is required but missing")
+		return errors.New("a required tool is missing")
 	}
 	return nil
 }
@@ -522,6 +552,9 @@ func (a *app) clearFocused(d Driver) error {
 }
 
 func (a *app) clearField(args []string) error {
+	if a.plat.Name() == "ios" {
+		return errors.New("clear-field is unsupported on iOS")
+	}
 	f := a.flags("clear-field")
 	f.driverFlag(a.getenv)
 	if err := f.parse(args); err != nil {
@@ -627,6 +660,9 @@ func (a *app) typeText(args []string) error {
 			return err
 		}
 	}
+	if a.plat.Name() == "ios" {
+		return a.typeIOS(d, f, *clearField, strings.Join(f.pos, " "))
+	}
 	if err := a.waitFocus(d); err != nil {
 		return err
 	}
@@ -676,6 +712,18 @@ func (a *app) typeText(args []string) error {
 		}
 	}
 	return a.ok(f, fmt.Sprintf("typed; field shows %q", shown), map[string]string{"field": shown})
+}
+
+// typeIOS types without the Android field verification (focus, IME and shell checks do not exist on iOS).
+func (a *app) typeIOS(d Driver, f *flags, clearField bool, text string) error {
+	if clearField {
+		return errors.New("type --clear is unsupported on iOS")
+	}
+	time.Sleep(keyboardSettle)
+	if err := d.Type(text); err != nil {
+		return err
+	}
+	return a.ok(f, "typed", nil)
 }
 
 func (a *app) key(args []string) error {

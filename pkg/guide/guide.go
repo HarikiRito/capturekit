@@ -30,7 +30,7 @@ func Instructions() string { return agentGuide }
 const agentGuide = `capture - screenshot toolkit for coding agents
 
 Packages (independent, use only what you need)
-  sim       drive an Android emulator/device: install an app, tap, type, screenshot
+  sim       drive an Android emulator/device or iOS simulator (--platform ios): install an app, tap, type, screenshot
   browser   drive a web page via agent-browser: navigate, click, screenshot
   annotate  draw colored boxes + labels on screenshots (ffmpeg)
 
@@ -94,6 +94,16 @@ sim: phone-harness  [optional, preferred driver when installed]
            (capture sim sets these itself)
   verify:  capture sim check
 
+sim: iOS  [optional, only for "capture sim --platform ios"]
+  purpose: simulator lifecycle via Xcode's simctl; UI tree + input via AXe; real iPhone via phone-harness.
+  detect:  capture sim --platform ios check
+  install: Xcode from the App Store (simctl: xcrun simctl help must work; macOS only)
+           AXe, simulators only: brew install cameroncooke/axe/axe
+           phone-harness, real iPhone only: see the phone-harness entry; needs macOS 15+, an iPhone on iOS 18+ and iPhone Mirroring.
+  limits:  real iPhone = iPhone Mirroring only: screenshot, tap x y, type, swipe, key. No UI tree, no install, no back, no shell.
+           select it with: capture sim --platform ios connect <name> --device
+  verify:  capture sim --platform ios check
+
 browser: agent-browser + node  [required for browser]
   purpose: agent-browser (npm package) drives Chrome; needs node and npm.
   detect:  capture browser check   (checks: binary, version, chrome; --json available)
@@ -106,7 +116,7 @@ browser: agent-browser + node  [required for browser]
 
 Order to run
   1. capture annotate check
-  2. capture sim check
+  2. capture sim check   (and capture sim --platform ios check for iOS)
   3. capture browser check
 Install what is red for the packages you need, re-run the same check, report what remains.
 `
