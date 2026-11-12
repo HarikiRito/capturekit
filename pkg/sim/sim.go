@@ -100,9 +100,9 @@ func (a *app) flags(name string) *flags {
 func (f *flags) driverFlag(getenv func(string) string) {
 	def := getenv("CAPTURE_SIM_DRIVER")
 	if def == "" {
-		def = "adb"
+		def = "auto"
 	}
-	f.driver = f.fs.String("driver", def, "adb|phoneharness")
+	f.driver = f.fs.String("driver", def, "auto|adb|phoneharness")
 }
 
 // parse allows flags anywhere; everything after a literal "--" is positional.
@@ -141,7 +141,21 @@ func (a *app) emit(asJSON bool, v any, text string) error {
 	return nil
 }
 
-func (a *app) driver(f *flags) (Driver, error) { return a.plat.Driver(*f.driver) }
+func (a *app) driver(f *flags) (Driver, error) {
+	if *f.driver != "auto" {
+		return a.plat.Driver(*f.driver)
+	}
+	adb, err := a.plat.Driver("adb")
+	if err != nil {
+		return nil, err
+	}
+	ph, err := a.plat.Driver("phoneharness")
+	if err != nil {
+		fmt.Fprintf(a.err, "capture sim: phone-harness unavailable, using adb: %v\n", err)
+		return adb, nil
+	}
+	return &autoDriver{ph: ph, adb: adb}, nil
+}
 
 func (a *app) check(args []string) error {
 	f := a.flags("check")

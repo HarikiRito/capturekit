@@ -22,7 +22,7 @@ App
   grant <pkg> <perm>...              pm grant
   shell -- <cmd>                     raw device shell
 
-Interact (all accept --driver adb|phoneharness)
+Interact (all accept --driver auto|adb|phoneharness)
   ui [--all]                         visible nodes: center, bounds, text, desc, class, clickable,
                                      plus set states: focused selected checked password disabled
   tap <x> <y>                        tap point
@@ -60,8 +60,10 @@ Tips
   'back' on the login screen exits the app; relaunch with 'launch'.
   After an action verify with 'wait' or 'ui', never assume it landed.
   State file: $CAPTURE_SIM_STATE (default ~/.local/state/capturekit/sim.json).
-  Driver: --driver or $CAPTURE_SIM_DRIVER; 'adb' is default. 'phoneharness' is experimental
-  (needs the phone-harness CLI in PATH; telemetry and update checks are disabled by this tool).
+  Driver: --driver or $CAPTURE_SIM_DRIVER; 'auto' is default: phone-harness when in PATH
+  (else adb, one stderr line). ui/screenshot/screen-size retry once on adb if phone-harness fails; tap/type/swipe/key/back/shell
+  never fall back (error says rerun with --driver adb). 'adb' or 'phoneharness' force one driver. Telemetry and update checks
+  of phone-harness are disabled by this tool.
   adb: $ADB, else $ANDROID_HOME/platform-tools/adb, else PATH.
 `
 }

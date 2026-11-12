@@ -84,8 +84,8 @@ sim: Android SDK emulator, avdmanager, system image  [optional, only for "captur
            "capture sim boot --create" creates the AVD "capturekit" with avdmanager.
   verify:  capture sim check
 
-sim: phone-harness  [optional, experimental driver]
-  purpose: alternative input driver (--driver phoneharness); adb is the default.
+sim: phone-harness  [optional, preferred driver when installed]
+  purpose: default input driver when present (--driver auto); falls back to adb if missing or failing.
   detect:  capture sim check
   install: pipx install phone-harness   (or pip install phone-harness)
            set PHONE_HARNESS_BIN if it is not in PATH.

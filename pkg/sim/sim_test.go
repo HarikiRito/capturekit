@@ -18,10 +18,13 @@ type call struct {
 
 type fakeExec struct {
 	calls []call
+	env   []string
+	stdin string
 	reply func(c call) (string, error)
 }
 
-func (f *fakeExec) Run(_ []string, _ []byte, name string, args ...string) ([]byte, error) {
+func (f *fakeExec) Run(env []string, stdin []byte, name string, args ...string) ([]byte, error) {
+	f.env, f.stdin = env, string(stdin)
 	c := call{name, args}
 	f.calls = append(f.calls, c)
 	if f.reply == nil {

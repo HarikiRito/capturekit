@@ -264,7 +264,7 @@ func (a *Android) Driver(name string) (Driver, error) {
 	case "phoneharness":
 		return newPhoneHarness(a)
 	}
-	return nil, fmt.Errorf("unknown driver %q (adb|phoneharness)", name)
+	return nil, fmt.Errorf("unknown driver %q (auto|adb|phoneharness)", name)
 }
 
 // Boot starts a headless native emulator and waits for sys.boot_completed.
