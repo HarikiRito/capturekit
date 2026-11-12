@@ -37,6 +37,9 @@ func (a *Android) Name() string { return "android" }
 
 func (a *Android) state() State {
 	s, _ := loadState(a.StatePath)
+	if s.Platform != "" {
+		return State{}
+	}
 	return s
 }
 

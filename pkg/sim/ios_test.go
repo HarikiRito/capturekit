@@ -250,3 +250,57 @@ func TestIOSCheckReportsTools(t *testing.T) {
 		t.Fatalf("%+v", byName)
 	}
 }
+
+func TestIOSTypeSkipsAndroidChecks(t *testing.T) {
+	old := keyboardSettle
+	keyboardSettle = 0
+	t.Cleanup(func() { keyboardSettle = old })
+	f := &fakeExec{}
+	p := newTestIOS(t, f)
+	if err := p.Connect("", false, "U1"); err != nil {
+		t.Fatal(err)
+	}
+	a := &app{out: &bytes.Buffer{}, err: &bytes.Buffer{}, plat: p, getenv: p.Getenv}
+	f.calls = nil
+	if err := a.typeText([]string{"--into", "--desc", "Email", "hello"}); err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, c := range f.calls {
+		names = append(names, c.args[0])
+	}
+	if want := []string{"describe-ui", "tap", "type"}; !reflect.DeepEqual(names, want) {
+		t.Fatalf("calls %v", names)
+	}
+	if f.stdin != "hello" {
+		t.Fatalf("stdin %q", f.stdin)
+	}
+	if err := a.typeText([]string{"--clear", "x"}); err == nil {
+		t.Fatal("--clear accepted on iOS")
+	}
+	if err := a.clearField(nil); err == nil {
+		t.Fatal("clear-field accepted on iOS")
+	}
+}
+
+func TestStateIsPerPlatform(t *testing.T) {
+	f := &fakeExec{}
+	ios := newTestIOS(t, f)
+	droid := newTestAndroid(t, f)
+	droid.StatePath = ios.StatePath
+	if err := ios.Connect("my-iphone", true, ""); err != nil {
+		t.Fatal(err)
+	}
+	if s := droid.state(); s != (State{}) {
+		t.Fatalf("android saw ios state %+v", s)
+	}
+	if err := saveState(droid.StatePath, State{Server: "h:1", Serial: "emulator-5554"}); err != nil {
+		t.Fatal(err)
+	}
+	if s := ios.state(); s != (State{}) {
+		t.Fatalf("ios saw android state %+v", s)
+	}
+	if s := droid.state(); s.Serial != "emulator-5554" {
+		t.Fatalf("android lost its state %+v", s)
+	}
+}

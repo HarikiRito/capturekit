@@ -33,7 +33,15 @@ func (p *IOS) Name() string { return "ios" }
 
 func (p *IOS) state() State {
 	s, _ := loadState(p.StatePath)
+	if s.Platform != "ios" {
+		return State{}
+	}
 	return s
+}
+
+func (p *IOS) save(s State) error {
+	s.Platform = "ios"
+	return saveState(p.StatePath, s)
 }
 
 func (p *IOS) simctl(args ...string) (string, error) {
@@ -152,13 +160,13 @@ func (p *IOS) Boot(o BootOpts) (string, error) {
 	if _, err := p.simctl("bootstatus", udid, "-b"); err != nil {
 		return "", err
 	}
-	return udid, saveState(p.StatePath, State{Serial: udid})
+	return udid, p.save(State{Serial: udid})
 }
 
 // Connect picks a simulator by --serial <udid>, or with device a real iPhone (target is only a label).
 func (p *IOS) Connect(target string, device bool, serial string) error {
 	if device {
-		return saveState(p.StatePath, State{Serial: target, Device: true})
+		return p.save(State{Serial: target, Device: true})
 	}
 	if target != "" || serial == "" {
 		return errors.New("ios has no remote server: use --serial <udid>, or <name> --device for a real iPhone")
@@ -169,7 +177,7 @@ func (p *IOS) Connect(target string, device bool, serial string) error {
 	}
 	for _, d := range sims {
 		if d.UDID == serial {
-			return saveState(p.StatePath, State{Serial: serial})
+			return p.save(State{Serial: serial})
 		}
 	}
 	return fmt.Errorf("no simulator with udid %q", serial)

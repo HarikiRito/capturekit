@@ -552,6 +552,9 @@ func (a *app) clearFocused(d Driver) error {
 }
 
 func (a *app) clearField(args []string) error {
+	if a.plat.Name() == "ios" {
+		return errors.New("clear-field is unsupported on iOS")
+	}
 	f := a.flags("clear-field")
 	f.driverFlag(a.getenv)
 	if err := f.parse(args); err != nil {
@@ -657,6 +660,9 @@ func (a *app) typeText(args []string) error {
 			return err
 		}
 	}
+	if a.plat.Name() == "ios" {
+		return a.typeIOS(d, f, *clearField, strings.Join(f.pos, " "))
+	}
 	if err := a.waitFocus(d); err != nil {
 		return err
 	}
@@ -706,6 +712,18 @@ func (a *app) typeText(args []string) error {
 		}
 	}
 	return a.ok(f, fmt.Sprintf("typed; field shows %q", shown), map[string]string{"field": shown})
+}
+
+// typeIOS types without the Android field verification (focus, IME and shell checks do not exist on iOS).
+func (a *app) typeIOS(d Driver, f *flags, clearField bool, text string) error {
+	if clearField {
+		return errors.New("type --clear is unsupported on iOS")
+	}
+	time.Sleep(keyboardSettle)
+	if err := d.Type(text); err != nil {
+		return err
+	}
+	return a.ok(f, "typed", nil)
 }
 
 func (a *app) key(args []string) error {

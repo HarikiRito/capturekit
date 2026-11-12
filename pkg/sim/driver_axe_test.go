@@ -1,6 +1,7 @@
 package sim
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -101,5 +102,36 @@ func TestAxeScreenshotUsesSimctl(t *testing.T) {
 	f.reply = func(call) (string, error) { return "", nil }
 	if _, err := d.Screenshot(); err == nil || !strings.Contains(err.Error(), "PNG") {
 		t.Fatalf("want PNG error, got %v", err)
+	}
+}
+
+func TestAxeScreenshotNeedsNoAxeBinary(t *testing.T) {
+	f := &fakeExec{}
+	p := newTestIOS(t, f)
+	p.LookPath = func(string) (string, error) { return "", errors.New("none") }
+	if err := p.Connect("", false, "U1"); err != nil {
+		t.Fatal(err)
+	}
+	d, err := p.Driver("axe")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if png, err := d.Screenshot(); err != nil || len(png) == 0 {
+		t.Fatalf("screenshot: %q %v", png, err)
+	}
+	if err := d.Tap(1, 2); err == nil || !strings.Contains(err.Error(), "axe not found") {
+		t.Fatalf("tap: %v", err)
+	}
+}
+
+func TestAxeUIToleratesAnyTextType(t *testing.T) {
+	d, f := axeSetup(t)
+	f.reply = func(call) (string, error) {
+		return `[{"type":"Slider","AXLabel":null,"AXValue":42,"AXUniqueId":7,"frame":{"x":0,"y":0,"width":1,"height":1}},
+		{"type":"Switch","AXValue":true,"frame":{"x":0,"y":0,"width":1,"height":1}}]`, nil
+	}
+	nodes, err := d.UI()
+	if err != nil || len(nodes) != 2 || nodes[0].Text != "42" || nodes[0].ID != "7" || nodes[0].Desc != "" || nodes[1].Text != "true" {
+		t.Fatalf("got %+v %v", nodes, err)
 	}
 }

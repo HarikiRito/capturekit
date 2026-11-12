@@ -12,6 +12,8 @@ type State struct {
 	Server string `json:"server,omitempty"` // adb server host:port (adb -H/-P)
 	Serial string `json:"serial,omitempty"` // device serial (adb -s) or simulator UDID
 	Device bool   `json:"device,omitempty"` // iOS: real iPhone via phone-harness
+	// Platform owns the state: "ios", or empty for android (older files). Other platforms ignore it.
+	Platform string `json:"platform,omitempty"`
 }
 
 func defaultStatePath(getenv func(string) string) string {
