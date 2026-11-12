@@ -143,7 +143,7 @@ func (a *Android) Check() []Tool {
 	} {
 		tools = append(tools, Tool{Name: t.name, Path: t.path, OK: t.path != "", Optional: true, Note: "optional (needed for boot only)"})
 	}
-	ph := Tool{Name: "phone-harness", Optional: true, Note: "optional, for --driver phoneharness (experimental)"}
+	ph := Tool{Name: "phone-harness", Optional: true, Note: "optional, default driver when present (--driver auto), else adb"}
 	if p, err := a.LookPath(phoneHarnessBin(a.Getenv)); err == nil {
 		ph.Path, ph.OK, ph.Note = p, true, "experimental"
 		if out, err := a.X.Run(nil, nil, p, "--version"); err == nil {
