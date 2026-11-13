@@ -2,6 +2,7 @@ package sim
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -78,8 +79,8 @@ func TestAxeUIMapsDescribeUIJSON(t *testing.T) {
 	}
 	want := []Node{
 		{Desc: "Demo", Class: "Application", Enabled: true, Right: 834, Bottom: 1194},
-		{Desc: "Sign in", ID: "signin", Class: "Button", Left: 100, Top: 200, Right: 300, Bottom: 260},
-		{Text: "a@b.c", Desc: "Email", Class: "TextField", Enabled: true, Top: 300, Right: 300, Bottom: 340},
+		{Desc: "Sign in", ID: "signin", Class: "Button", Clickable: true, Left: 100, Top: 200, Right: 300, Bottom: 260},
+		{Text: "a@b.c", Desc: "Email", Class: "TextField", Clickable: true, Enabled: true, Top: 300, Right: 300, Bottom: 340},
 	}
 	if !reflect.DeepEqual(nodes, want) {
 		t.Fatalf("got %+v\nwant %+v", nodes, want)
@@ -133,5 +134,39 @@ func TestAxeUIToleratesAnyTextType(t *testing.T) {
 	nodes, err := d.UI()
 	if err != nil || len(nodes) != 2 || nodes[0].Text != "42" || nodes[0].ID != "7" || nodes[0].Desc != "" || nodes[1].Text != "true" {
 		t.Fatalf("got %+v %v", nodes, err)
+	}
+}
+
+// real `axe describe-ui` of a Flutter screen: the Flash switch reports enabled:false although it toggles,
+// and rows scrolled out of a list report a 0x0 frame at 0,0.
+func TestAxeUIRealCaptureScreen(t *testing.T) {
+	raw, err := os.ReadFile("testdata/axe_capture.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, f := axeSetup(t)
+	f.reply = func(call) (string, error) { return string(raw), nil }
+	nodes, err := d.UI()
+	if err != nil {
+		t.Fatal(err)
+	}
+	byDesc := map[string]Node{}
+	for _, n := range nodes {
+		if n.Desc == "Queue item 22" {
+			t.Fatalf("empty-frame node listed: %+v", n)
+		}
+		if n.Class != "StaticText" || n.Desc != "Capture" {
+			byDesc[n.Desc+"/"+n.Class] = n
+		}
+	}
+	if n := byDesc["Capture/Button"]; !n.Clickable || !n.Enabled {
+		t.Fatalf("button %+v", n)
+	}
+	if n := byDesc["Flash/CheckBox"]; !n.Clickable || !n.Enabled || n.Text != "0" {
+		t.Fatalf("switch %+v", n)
+	}
+	got, ok := FindNode(nodes, "Capture", true, false)
+	if !ok || got.Class != "Button" {
+		t.Fatalf("tap --desc Capture resolved to %+v", got)
 	}
 }

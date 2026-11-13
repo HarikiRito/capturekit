@@ -248,6 +248,15 @@ func (a *app) connect(args []string) error {
 	if err := a.plat.Connect(target, *device, *serial); err != nil {
 		return err
 	}
+	if a.plat.Name() == "ios" {
+		if devs, err := a.plat.Devices(); err == nil {
+			for _, d := range devs {
+				if d.Serial == *serial || d.Serial == target {
+					return a.emit(*f.json, d, fmt.Sprintf("connected %s (%s)", d.Serial, d.Info))
+				}
+			}
+		}
+	}
 	return a.devices([]string{jsonArg(*f.json)})
 }
 

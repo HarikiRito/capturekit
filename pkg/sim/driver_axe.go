@@ -92,7 +92,12 @@ type axeNode struct {
 	Children                     []axeNode
 }
 
+// axeClickable are the AXe element types that take taps; describe-ui has no "clickable" field.
+var axeClickable = map[string]bool{"Button": true, "CheckBox": true, "TextField": true, "SecureTextField": true,
+	"TextView": true, "SearchField": true, "Link": true, "Cell": true, "Slider": true, "Switch": true, "Tab": true}
+
 // UI maps `axe describe-ui` (a JSON array of nested nodes) to flat Nodes; AXLabel -> Desc, AXValue -> Text.
+// Nodes with an empty frame (list rows scrolled out of view) are dropped. Switches report enabled:false even when they toggle, so it is ignored for them.
 func (d *axeDriver) UI() ([]Node, error) {
 	out, err := d.run(nil, "describe-ui")
 	if err != nil {
@@ -107,9 +112,13 @@ func (d *axeDriver) UI() ([]Node, error) {
 	walk = func(ns []axeNode) {
 		for _, n := range ns {
 			f := n.Frame
+			if f.Width == 0 && f.Height == 0 {
+				walk(n.Children)
+				continue
+			}
 			nodes = append(nodes, Node{Text: string(n.AXValue), Desc: string(n.AXLabel), ID: string(n.AXUniqueID), Class: n.Type,
-				Enabled: n.Enabled == nil || *n.Enabled,
-				Left:    int(math.Round(f.X)), Top: int(math.Round(f.Y)),
+				Clickable: axeClickable[n.Type], Enabled: n.Enabled == nil || *n.Enabled || n.Type == "CheckBox",
+				Left: int(math.Round(f.X)), Top: int(math.Round(f.Y)),
 				Right: int(math.Round(f.X + f.Width)), Bottom: int(math.Round(f.Y + f.Height))})
 			walk(n.Children)
 		}

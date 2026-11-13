@@ -34,7 +34,8 @@ iOS (--platform ios; needs Xcode, simulators only for the commands below)
   grant <bundle id> <service>...     simctl privacy grant (photos, location, microphone, ...; see simctl privacy)
   shell, back                        unsupported
   Simulator UI/input run through AXe (brew install cameroncooke/axe/axe): ui = axe describe-ui (AXLabel -> desc,
-  AXValue -> text; clickable is always false), tap/swipe use points (screen-size reports points, screenshots are pixels),
+  AXValue -> text; clickable = button/field/switch/cell types; nodes with an empty frame are hidden; Flutter
+  text fields report no value), tap/swipe use points (screen-size reports points, screenshots are pixels),
   type = US keyboard ASCII, key takes an HID usage code (40 = Return). Screenshot = simctl io screenshot.
   Real iPhone: connect <name> --device selects phone-harness over iPhone Mirroring (macOS 15+, iOS 18+, iPhone only).
   It supports screenshot, tap x y, type, swipe, key (press combo). No UI tree (ui and tap --text fail), no back, no shell,
