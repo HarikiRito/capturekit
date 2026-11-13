@@ -76,7 +76,7 @@ func ParseUIXML(data []byte) ([]Node, error) {
 
 // FindNode matches query against text and content-desc (Flutter labels live in desc).
 // Ranking: exact before substring, then the preferred field (desc when byDesc, else text),
-// then smallest area. exact disables substring matching. Case-insensitive.
+// then clickable, then smallest area. exact disables substring matching. Case-insensitive.
 func FindNode(nodes []Node, query string, byDesc, exact bool) (Node, bool) {
 	q := strings.ToLower(query)
 	var best Node
@@ -96,11 +96,19 @@ func FindNode(nodes []Node, query string, byDesc, exact bool) (Node, bool) {
 		if rank < 0 {
 			continue
 		}
-		if bestRank < 0 || rank < bestRank || (rank == bestRank && n.area() < best.area()) {
+		if bestRank < 0 || rank < bestRank || (rank == bestRank && better(n, best)) {
 			best, bestRank = n, rank
 		}
 	}
 	return best, bestRank >= 0
+}
+
+// better prefers a clickable node over a plain label, then the smaller one.
+func better(n, best Node) bool {
+	if n.Clickable != best.Clickable {
+		return n.Clickable
+	}
+	return n.area() < best.area()
 }
 
 // matchRank is base (exact) or base+2 (substring); -1 for no match or empty field.

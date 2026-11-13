@@ -11,7 +11,7 @@ func TestTexts(t *testing.T) {
 		cmd  string
 		want []string
 	}{
-		{"agent-guide", []string{"sim", "browser", "annotate", "instructions", "check", "capture setup"}},
+		{"agent-guide", []string{"sim", "browser", "annotate", "instructions", "check", "capture setup", "--platform ios", "brew install cameroncooke/axe/axe", "connect --serial", "launch <bundle id>", "screenshot is 2x", "coordinates from ui"}},
 		{"setup", []string{"annotate check", "sim check", "browser check", "ffmpeg", "adb", "agent-browser", "phone-harness"}},
 	} {
 		var out, errb bytes.Buffer

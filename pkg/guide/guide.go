@@ -39,6 +39,13 @@ Standard flow
   2. capture sim ... | capture browser ...   take raw screenshots
   3. capture annotate ...           box + label the screenshots
 
+iOS simulator (sim --platform ios; macOS + Xcode)
+  capture sim --platform ios check              then: brew install cameroncooke/axe/axe
+  capture sim --platform ios connect --serial <udid>   (udids: devices) or: boot --create
+  install <App.app>, launch <bundle id>, then ui / tap / type / swipe / screenshot, stop, clear
+  tap/swipe use points; screenshot is 2x pixels, never reuse its coordinates.
+  When two nodes share a label (title + button) or a field value is not shown, tap coordinates from ui.
+
 Rules
   - run "capture <pkg> instructions" before using a package: full commands, flags, schemas.
   - run "capture <pkg> check" to see whether its dependencies are present.

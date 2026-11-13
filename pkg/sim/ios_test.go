@@ -304,3 +304,15 @@ func TestStateIsPerPlatform(t *testing.T) {
 		t.Fatalf("android lost its state %+v", s)
 	}
 }
+
+func TestIOSConnectPrintsSelectedSimulator(t *testing.T) {
+	p := newTestIOS(t, &fakeExec{})
+	var out bytes.Buffer
+	a := &app{out: &out, err: &bytes.Buffer{}, plat: p, getenv: p.Getenv}
+	if err := a.connect([]string{"--serial", "U1"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(out.String()); got != "connected U1 (iPad Pro 11)" {
+		t.Fatalf("got %q", got)
+	}
+}
